@@ -12,11 +12,11 @@ nLines = 64
 sigma = 2
 threshold_hough = 0.1
 rhoRes = 1
-thetaRes = math.pi/1000
+thetaRes = math.pi / 1000
 
 threshold_vp_r_lo = 16
 threshold_vp_r_hi = 32
-threshold_vp_cnt = nLines // 8
+threshold_vp_cnt = 8
 
 DRAW_HL = True
 DRAW_VP = True
@@ -90,7 +90,7 @@ def HoughTransform(Im,threshold, rhoRes=1, thetaRes=math.pi/1000):
 
 def HoughLines(H,rhoRes,thetaRes,nLines=32):
     
-    rbase = H.shape[1]//2
+    rbase = H.shape[1] // 2
     thetasize = 35
     rhosize = 15
     thetahalfsize = (thetasize - 1) // 2
@@ -108,11 +108,11 @@ def HoughLines(H,rhoRes,thetaRes,nLines=32):
         lTheta[i] = ind[0] * thetaRes
         Hth[max(ind[0]-thetahalfsize,0):min(ind[0]+thetahalfsize+1,H.shape[0]),max(ind[1]-rhohalfsize,0):min(ind[1]+rhohalfsize+1,H.shape[1])] = -1
 
-    return lRho,lTheta
+    return lRho, lTheta
 
 def vp_detection(lRho, lTheta, threshold_r_lo=5, threshold_r_hi=25, threshold_cnt=5):
 
-    vp = np.zeros((3,2))
+    vp = np.zeros((3, 2))
     for vp_dim in range(3):
         N = lRho.shape[0]
         vp_i, vp_j = -1, -1
@@ -144,7 +144,7 @@ def vp_detection(lRho, lTheta, threshold_r_lo=5, threshold_r_hi=25, threshold_cn
         lRho, lTheta = lRho[ind], lTheta[ind]
 
     if vp.shape[0] == 2 and np.abs(vp[0][0] - vp[1][0]) < np.abs(vp[0][1] - vp[1][1]) * np.tan(math.pi * 15 / 180):
-        vertical = (lTheta > math.pi * 165 / 180) + (lTheta < math.pi * 15 / 180)
+        vertical = (lTheta > math.pi * 150 / 180) + (lTheta < math.pi * 30 / 180)
         ind = np.where(vertical)[0]
         lRho, lTheta = lRho[ind], lTheta[ind]
         N = lRho.shape[0]
@@ -211,7 +211,7 @@ def camera_info(Igs, vp):
 def main():
 
     # read images
-    for img_path in glob.glob(datadir+'/dataset/*.*'):
+    for img_path in glob.glob(datadir+'/dataset/r*.*'):
         # load grayscale image
         img = Image.open(img_path).convert("L")
 
