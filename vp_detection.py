@@ -16,7 +16,7 @@ thetaRes = math.pi/1000
 
 threshold_vp_r_lo = 16
 threshold_vp_r_hi = 32
-threshold_vp_cnt = nLines // 6
+threshold_vp_cnt = nLines // 8
 
 DRAW_HL = True
 DRAW_VP = True
@@ -143,6 +143,32 @@ def vp_detection(lRho, lTheta, threshold_r_lo=5, threshold_r_hi=25, threshold_cn
         ind = np.where(not_passing)[0]
         lRho, lTheta = lRho[ind], lTheta[ind]
 
+    if vp.shape[0] == 2 and np.abs(vp[0][0] - vp[1][0]) < np.abs(vp[0][1] - vp[1][1]) * np.tan(math.pi * 15 / 180):
+        vertical = (lTheta > math.pi * 165 / 180) + (lTheta < math.pi * 15 / 180)
+        ind = np.where(vertical)[0]
+        lRho, lTheta = lRho[ind], lTheta[ind]
+        N = lRho.shape[0]
+        if N >=2:
+            vp_i, vp_j = -1, -1
+            vp_dist_min = 2147483647
+
+            for i in range(N):
+                for j in range(i+1,N):
+                    try:
+                        A = np.array([[np.sin(lTheta[i]), np.cos(lTheta[i])], [np.sin(lTheta[j]), np.cos(lTheta[j])]])
+                        x, y = np.matmul(np.linalg.inv(A), np.array([[lRho[i]], [lRho[j]]]))
+                        vp_rho = x * np.sin(lTheta) + y * np.cos(lTheta)
+                        max_dist = np.max(np.abs(lRho - vp_rho))
+                        if max_dist < vp_dist_min:
+                            vp_dist_min = max_dist
+                            vp_i, vp_j = i, j
+                    except:
+                        continue
+            if vp_i >= 0:
+                A = np.array([[np.sin(lTheta[vp_i]), np.cos(lTheta[vp_i])], [np.sin(lTheta[vp_j]), np.cos(lTheta[vp_j])]])
+                x, y = np.matmul(np.linalg.inv(A), np.array([[lRho[vp_i]], [lRho[vp_j]]]))
+                vp = np.concatenate((vp, np.array([x, y]).reshape((1,2))), axis=0)
+    print(vp)
     return vp
 
 def camera_info(Igs, vp):
