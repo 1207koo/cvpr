@@ -172,12 +172,20 @@ def camera_info(Igs, vp):
             focal_length = 2147483647
         else:
             focal_length = np.sqrt(fl_sq)
+        mid = (vp[1] + vp[2]) / 2
+        fl_sq = np.sum((vp[1]-mid)*(vp[1]-mid))-np.sum((camera_direction-mid)*(camera_direction-mid))
+        if fl_sq < 0 or np.abs(np.sqrt(fl_sq)-focal_length) > 1e-6:
+            focal_length = 2147483647
+        mid = (vp[2] + vp[0]) / 2
+        fl_sq = np.sum((vp[2]-mid)*(vp[2]-mid))-np.sum((camera_direction-mid)*(camera_direction-mid))
+        if fl_sq < 0 or np.abs(np.sqrt(fl_sq)-focal_length) > 1e-6:
+            focal_length = 2147483647
     return camera_direction, focal_length
 
 def main():
 
     # read images
-    for img_path in glob.glob(datadir+'/*/*.jpg'):
+    for img_path in glob.glob(datadir+'/dataset/*.*'):
         # load grayscale image
         img = Image.open(img_path).convert("L")
 
