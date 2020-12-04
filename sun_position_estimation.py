@@ -6,7 +6,13 @@ from scipy import spatial
 import copy
 import time
 
-# input : image --> output : ~_sky.jpg (sky segmentation), ~_sun.jpg (sun position likelihood plot)
+# input : image, theta_c (카메라가 보는 방향의 고도), f (이미지 중심으로부터 45도가 몇 pixel인지)
+# output : ~_sky.jpg (sky segmentation), ~_sun.jpg (sun position likelihood plot)
+
+f = 100
+theta_c = 0
+phi_c = 0
+
 data_dir = 'data/dataset/'
 result_dir = 'results/dataset/'
 filename = 'y024'
@@ -126,10 +132,6 @@ img = cv2.bitwise_or(img, img, mask=mask)
 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 cv2.imwrite(result_dir+filename+'_sky.jpg', img)
 
-f = 100
-theta_c = 0
-phi_c = 0
-
 # calculate theta_p, gamma_p
 def theta_and_gamma(u,v,f,theta_s, phi_s):
   theta_p = np.arccos((v * np.sin(theta_c) + f * np.cos(theta_c))/np.sqrt(u**2 + v**2 + f**2))
@@ -155,7 +157,8 @@ def relative_luminance(u, v, f, theta_s, phi_s):
 # assume gaussian distribution N(kg(theta_s, phi_s), sigma**2)
 # given one pixel and k, theta_s, phi_s ==> calculate likelihood
 
-def log_likelihood(s, u, v, f, k, theta_s, phi_s, sigma = 1.0):
+def log_likelihood(s, u, v, f, k, theta_s, phi_s, sigma = 10.0):
+  rl = relative_luminance(u, v, f, theta_s, phi_s)
   L = k * relative_luminance(u, v, f, theta_s, phi_s)
   ret = - ((s - L) ** 2) / (2 * (sigma**2))
   return ret
@@ -169,8 +172,9 @@ for x in range(0,h,step):
     sky.append((x,y))
 
 # make sky pixels ~ 500
-if len(sky) > 500:
-  nstep = int(np.sqrt(len(sky) // 500 + 1))
+desired_pixel_size = 500
+if len(sky) > desired_pixel_size:
+  nstep = int(np.sqrt(len(sky) // desired_pixel_size + 1))
   sky = []
   for x in range(0,h,nstep):
     for y in range(0,w,nstep):
@@ -212,15 +216,21 @@ likelihood_space = np.amax(likelihood_space, axis = 0)
 flatten_index = np.argmax(likelihood_space)
 theta_index = flatten_index // phi_len
 phi_index = flatten_index % phi_len
-print("theta : {}, phi : {}".format(theta_list[theta_index]/np.pi*180, phi_list[phi_index]/np.pi*180))
+theta_rad = theta_list[theta_index]
+theta_degree = theta_rad / np.pi * 180
+phi_rad = phi_list[phi_index]
+phi_degree = phi_rad / np.pi * 180
+title = 'Sun Position likelihood\ntheta : {:.2f}rad [{:.2f}°], phi : {:.2f}rad [{:.2f}°]'.format(theta_rad, theta_degree, phi_rad, phi_degree)
+print(title)
 
 ax = plt.subplot(1, 1, 1, projection='polar')
 mx = np.max(likelihood_space)
 mn = np.min(likelihood_space)
-z = (likelihood_space - mn) / (mx-mn)
+z = np.exp((likelihood_space - mn) / (mx-mn))
 cmap = plt.get_cmap('jet')
 plt.pcolormesh(phi_list, np.pi/2 - theta_list, z, cmap = cmap)
-ax.set_title('Sun Position log likelihood', position=(0.5, 1.1))
+
+ax.set_title(title, position = (0.5, 1.07), pad = 1)
 ax.set_rlim(0,np.pi/2)
 ax.axes.get_yaxis().set_visible(False)
 plt.savefig(result_dir+filename+'_sun.jpg')
