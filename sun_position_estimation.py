@@ -6,18 +6,20 @@ from scipy import spatial
 import copy
 import time
 
-# input : image, theta_c (카메라가 보는 방향의 고도), f (이미지 중심으로부터 45도가 몇 pixel인지)
+# input : image, theta_c (카메라가 보는 방향의 고도), f (이미지 중심으로부터 45도가 몇 pixel인지), camera center
 # output : ~_sky.jpg (sky segmentation), ~_sun.jpg (sun position likelihood plot)
 
-f = 100
-theta_c = 0
+center = [452.07,466.56]
+f = 561.15
+theta_c = np.pi/2 - 1.073
 phi_c = 0
 
 data_dir = 'data/dataset/'
-result_dir = 'results/dataset/'
-filename = 'y024'
-print("Get image from {}".format(data_dir+filename+'.jpg'))
-img = cv2.imread(data_dir+filename+'.jpg', cv2.IMREAD_COLOR)
+result_dir = 'results/sun_position/'
+filename = 'r016'
+fileext = '.PNG'
+print("Get image from {}".format(data_dir+filename+fileext))
+img = cv2.imread(data_dir+filename+fileext, cv2.IMREAD_COLOR)
 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 print("image size : {}".format(img.shape))
 
@@ -104,12 +106,88 @@ def calculate_border_optimal(image, thresh_min=5, thresh_max=600, search_step=5)
             b_opt = b_tmp
 
     return b_opt
+    
+def partial_sky_region(bopt, thresh4):
+    return np.any(np.diff(bopt) > thresh4)
 
-def detect_sky(image):
-    bopt = calculate_border_optimal(image)
+def refine_sky(bopt, image):
+    sky_mask = make_mask(bopt, image)
+
+    ground = np.ma.array(
+        image,
+        mask=cv2.cvtColor(cv2.bitwise_not(sky_mask), cv2.COLOR_GRAY2BGR)
+    ).compressed()
+    sky = np.ma.array(
+        image,
+        mask=cv2.cvtColor(sky_mask, cv2.COLOR_GRAY2BGR)
+    ).compressed()
+    ground.shape = (ground.size//3, 3)
+    sky.shape = (sky.size//3, 3)
+
+    ret, label, center = cv2.kmeans(
+        np.float32(sky),
+        2,
+        None,
+        (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0),
+        10,
+        cv2.KMEANS_RANDOM_CENTERS
+    )
+
+    sigma_s1, mu_s1 = cv2.calcCovarMatrix(
+        sky[label.ravel() == 0],
+        None,
+        cv2.COVAR_NORMAL | cv2.COVAR_ROWS | cv2.COVAR_SCALE
+    )
+    ic_s1 = cv2.invert(sigma_s1, cv2.DECOMP_SVD)[1]
+
+    sigma_s2, mu_s2 = cv2.calcCovarMatrix(
+        sky[label.ravel() == 1],
+        None,
+        cv2.COVAR_NORMAL | cv2.COVAR_ROWS | cv2.COVAR_SCALE
+    )
+    ic_s2 = cv2.invert(sigma_s2, cv2.DECOMP_SVD)[1]
+
+    sigma_g, mu_g = cv2.calcCovarMatrix(
+        ground,
+        None,
+        cv2.COVAR_NORMAL | cv2.COVAR_ROWS | cv2.COVAR_SCALE
+    )
+    icg = cv2.invert(sigma_g, cv2.DECOMP_SVD)[1]
+
+    if cv2.Mahalanobis(mu_s1, mu_g, ic_s1) > cv2.Mahalanobis(mu_s2, mu_g, ic_s2):
+        mu_s = mu_s1
+        sigma_s = sigma_s1
+        ics = ic_s1
+    else:
+        mu_s = mu_s2
+        sigma_s = sigma_s2
+        ics = ic_s2
+
+    for x in range(image.shape[1]):
+        cnt = np.sum(np.less(
+            spatial.distance.cdist(
+                image[0:bopt[x], x],
+                mu_s,
+                'mahalanobis',
+                VI=ics
+            ),
+            spatial.distance.cdist(
+                image[0:bopt[x], x],
+                mu_g,
+                'mahalanobis',
+                VI=icg
+            )
+        ))
+
+        if cnt < (bopt[x] / 2):
+            bopt[x] = 0
+
     return bopt
 
 
+def detect_sky(image):
+  bopt = calculate_border_optimal(image)
+  return bopt
 
 print("Sky segmentation started")
 
@@ -122,7 +200,7 @@ for i,b in enumerate(border):
   for j in range(b):
     mask[j,i] = 255
 
-kernel = np.ones((10,10),np.uint8)
+kernel = np.ones((50,50),np.uint8)
 mask = cv2.erode(mask,kernel)
 
 end = time.time()
@@ -130,7 +208,7 @@ print("Elapsed time : {}".format(end - start))
 
 img = cv2.bitwise_or(img, img, mask=mask)
 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-cv2.imwrite(result_dir+filename+'_sky.jpg', img)
+cv2.imwrite(result_dir+filename+'_sky'+fileext, img)
 
 # calculate theta_p, gamma_p
 def theta_and_gamma(u,v,f,theta_s, phi_s):
@@ -157,7 +235,7 @@ def relative_luminance(u, v, f, theta_s, phi_s):
 # assume gaussian distribution N(kg(theta_s, phi_s), sigma**2)
 # given one pixel and k, theta_s, phi_s ==> calculate likelihood
 
-def log_likelihood(s, u, v, f, k, theta_s, phi_s, sigma = 10.0):
+def log_likelihood(s, u, v, f, k, theta_s, phi_s, sigma = 1.0):
   rl = relative_luminance(u, v, f, theta_s, phi_s)
   L = k * relative_luminance(u, v, f, theta_s, phi_s)
   ret = - ((s - L) ** 2) / (2 * (sigma**2))
@@ -171,10 +249,10 @@ for x in range(0,h,step):
       continue
     sky.append((x,y))
 
-# make sky pixels ~ 500
-desired_pixel_size = 500
+# make sky pixels ~ 100
+desired_pixel_size = 100
 if len(sky) > desired_pixel_size:
-  nstep = int(np.sqrt(len(sky) // desired_pixel_size + 1))
+  nstep = int(np.sqrt(len(sky) // desired_pixel_size))*step
   sky = []
   for x in range(0,h,nstep):
     for y in range(0,w,nstep):
@@ -188,7 +266,9 @@ k_len = 3
 theta_len = 10
 phi_len = 40
 
+#k_list = [100]
 k_list = np.exp(np.linspace(0,5,k_len))
+#k_list = np.exp(np.linspace(5,5,k_len))
 theta_list = np.linspace(0,np.pi/2,theta_len)
 phi_list = np.linspace(0,2*np.pi,phi_len)
 
@@ -203,8 +283,8 @@ for kIdx,k in enumerate(k_list):
   for thetaIdx,theta in enumerate(theta_list):
     for phiIdx,phi in enumerate(phi_list):
       for x,y in sky:
-        u = y - w/2
-        v = x - h/2
+        u = y - center[0]
+        v = x - center[1]
         s = np.linalg.norm(img[x,y])
         log_prob = log_likelihood(s, u, v, f, k, theta, phi)
         likelihood_space[kIdx,thetaIdx,phiIdx] += log_prob
@@ -228,11 +308,11 @@ mx = np.max(likelihood_space)
 mn = np.min(likelihood_space)
 z = np.exp((likelihood_space - mn) / (mx-mn))
 cmap = plt.get_cmap('jet')
-plt.pcolormesh(phi_list, np.pi/2 - theta_list, z, cmap = cmap)
+plt.pcolormesh(phi_list, theta_list, z, cmap = cmap)
 
 ax.set_title(title, position = (0.5, 1.07), pad = 1)
 ax.set_rlim(0,np.pi/2)
 ax.axes.get_yaxis().set_visible(False)
-plt.savefig(result_dir+filename+'_sun.jpg')
+plt.savefig(result_dir+filename+'_sun'+fileext)
 
 print("done.")

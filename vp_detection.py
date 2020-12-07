@@ -6,6 +6,7 @@ from PIL import Image, ImageDraw
 
 datadir = './data'
 resultdir='./results'
+imagename = '/dataset/r016.PNG' # '/dataset/r*.*'
 
 nLines = 64
 
@@ -175,43 +176,50 @@ def camera_info(Igs, vp):
     h, w = Igs.shape
     N = vp.shape[0]
 
+
     focal_length = None
     camera_direction = None
 
-    if N == 1:
-        camera_direction = vp[0]
+    if N != 3:
+        return None, None, None
+   
+    A = np.zeros((2,2))
+    b = np.zeros((2,1))
+    A[0] = vp[0] - vp[1]
+    b[0] = np.sum(A[0] * vp[2])
+    A[1] = vp[1] - vp[2]
+    b[1] = np.sum(A[1] * vp[0])
+    camera_direction = np.matmul(np.linalg.inv(A), b).reshape((2,))
+    mid = (vp[0] + vp[1]) / 2
+    fl_sq = np.sum((vp[0]-mid)*(vp[0]-mid))-np.sum((camera_direction-mid)*(camera_direction-mid))
+    if fl_sq < 0:
         focal_length = 2147483647
-    elif N == 2:
-        camera_direction = np.array([(vp[0][0]-vp[1][0])*(w/2-vp[1][0])/(vp[1][0]-vp[1][1])+vp[1][0], w/2])
-        focal_length = np.sqrt(np.sqrt(np.sum((camera_direction-vp[0])*(camera_direction-vp[0])))*np.sqrt(np.sum((camera_direction-vp[1])*(camera_direction-vp[1]))))
-    elif N == 3:
-        A = np.zeros((2,2))
-        b = np.zeros((2,1))
-        A[0] = vp[0] - vp[1]
-        b[0] = np.sum(A[0] * vp[2])
-        A[1] = vp[1] - vp[2]
-        b[1] = np.sum(A[1] * vp[0])
-        camera_direction = np.matmul(np.linalg.inv(A), b).reshape((2,))
-        mid = (vp[0] + vp[1]) / 2
-        fl_sq = np.sum((vp[0]-mid)*(vp[0]-mid))-np.sum((camera_direction-mid)*(camera_direction-mid))
-        if fl_sq < 0:
-            focal_length = 2147483647
-        else:
-            focal_length = np.sqrt(fl_sq)
-        mid = (vp[1] + vp[2]) / 2
-        fl_sq = np.sum((vp[1]-mid)*(vp[1]-mid))-np.sum((camera_direction-mid)*(camera_direction-mid))
-        if fl_sq < 0 or np.abs(np.sqrt(fl_sq)-focal_length) > 1e-6:
-            focal_length = 2147483647
-        mid = (vp[2] + vp[0]) / 2
-        fl_sq = np.sum((vp[2]-mid)*(vp[2]-mid))-np.sum((camera_direction-mid)*(camera_direction-mid))
-        if fl_sq < 0 or np.abs(np.sqrt(fl_sq)-focal_length) > 1e-6:
-            focal_length = 2147483647
-    return camera_direction, focal_length
+    else:
+        focal_length = np.sqrt(fl_sq)
+    mid = (vp[1] + vp[2]) / 2
+    fl_sq = np.sum((vp[1]-mid)*(vp[1]-mid))-np.sum((camera_direction-mid)*(camera_direction-mid))
+    if fl_sq < 0 or np.abs(np.sqrt(fl_sq)-focal_length) > 1e-6:
+        focal_length = 2147483647
+    mid = (vp[2] + vp[0]) / 2
+    fl_sq = np.sum((vp[2]-mid)*(vp[2]-mid))-np.sum((camera_direction-mid)*(camera_direction-mid))
+    if fl_sq < 0 or np.abs(np.sqrt(fl_sq)-focal_length) > 1e-6:
+        focal_length = 2147483647
+
+    sorted_index = np.argsort(vp[:, 0])
+    vp_z = None
+    if vp[sorted_index[1]][0] - vp[sorted_index[0]][0] > vp[sorted_index[2]][0] - vp[sorted_index[1]][0]:
+        vp_z = vp[sorted_index[0]]
+    else:
+        vp_z = vp[sorted_index[2]]
+    
+    camera_theta = np.arctan(np.sqrt(np.sum((vp_z - camera_direction)**2)) / focal_length)
+    
+    return camera_theta, camera_direction, focal_length
 
 def main():
 
     # read images
-    for img_path in glob.glob(datadir+'/dataset/r*.*'):
+    for img_path in glob.glob(datadir+imagename):
         # load grayscale image
         img = Image.open(img_path).convert("L")
 
@@ -223,8 +231,8 @@ def main():
         H = HoughTransform(Im,threshold_hough, rhoRes, thetaRes)
         lRho, lTheta = HoughLines(H,rhoRes,thetaRes,nLines)
         vp = vp_detection(lRho, lTheta, threshold_vp_r_lo, threshold_vp_r_hi, threshold_vp_cnt)
-        camera_direction, focal_length = camera_info(Igs, vp)
-        print(camera_direction, focal_length)
+        camera_theta, camera_direction, focal_length = camera_info(Igs, vp)
+        print(camera_theta, camera_direction, focal_length)
 
         image = np.array(Image.open(img_path).convert("RGB"))
         h, w, c = image.shape
