@@ -4,7 +4,7 @@ import glob
 import numpy as np
 from PIL import Image, ImageDraw
 
-datadir = './data'
+datadir = './data/dataset'
 resultdir='./results'
 imagename = '/dataset/r016.PNG' # '/dataset/r*.*'
 
@@ -219,7 +219,7 @@ def camera_info(Igs, vp):
 def main():
 
     # read images
-    for img_path in glob.glob(datadir+imagename):
+    for img_path in glob.glob(datadir+'/r*.*'):
         # load grayscale image
         img = Image.open(img_path).convert("L")
 
@@ -257,7 +257,7 @@ def main():
             N = vp.shape[0]
             for i in range(N):
                 draw.rectangle((vp[i][1]-y_min-2,vp[i][0]-x_min-2,vp[i][1]-y_min+2+1,vp[i][0]-x_min+2+1), fill=(255,0,0))
-        result.save(resultdir+'/'+img_path[len(datadir)+1:])
+        result.save(resultdir+'/vanishing_point/'+img_path[len(datadir)+1:])
 
         print(img_path,"DONE")
 
