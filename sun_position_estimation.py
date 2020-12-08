@@ -11,7 +11,8 @@ import time
 
 center = [452.07,466.56]
 f = 561.15
-theta_c = np.pi/2 - 1.073
+#theta_c = np.pi/2 - 1.073
+theta_c = 0
 phi_c = 0
 
 data_dir = 'data/dataset/'
