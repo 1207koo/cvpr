@@ -204,6 +204,7 @@ def camera_info(Igs, vp):
     if fl_sq < 0 or np.abs(np.sqrt(fl_sq)-focal_length) > 1e-6:
         focal_length = 2147483647
 
+    '''
     sorted_index = np.argsort(vp[:, 0])
     vp_z = None
     if vp[sorted_index[1]][0] - vp[sorted_index[0]][0] > vp[sorted_index[2]][0] - vp[sorted_index[1]][0]:
@@ -212,7 +213,8 @@ def camera_info(Igs, vp):
         vp_z = vp[sorted_index[2]]
     
     camera_theta = np.arctan(np.sqrt(np.sum((vp_z - camera_direction)**2)) / focal_length)
-    
+    '''
+
     return camera_direction, focal_length
 
 def main():
