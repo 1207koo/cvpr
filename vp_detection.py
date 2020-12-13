@@ -6,7 +6,7 @@ from PIL import Image, ImageDraw
 
 datadir = './data/dataset'
 resultdir='./results'
-imagename = '/dataset/r016.PNG' # '/dataset/r*.*'
+imagename = '/r016.PNG' # '/r*.*'
 
 nLines = 64
 
@@ -169,7 +169,6 @@ def vp_detection(lRho, lTheta, threshold_r_lo=5, threshold_r_hi=25, threshold_cn
                 A = np.array([[np.sin(lTheta[vp_i]), np.cos(lTheta[vp_i])], [np.sin(lTheta[vp_j]), np.cos(lTheta[vp_j])]])
                 x, y = np.matmul(np.linalg.inv(A), np.array([[lRho[vp_i]], [lRho[vp_j]]]))
                 vp = np.concatenate((vp, np.array([x, y]).reshape((1,2))), axis=0)
-    print(vp)
     return vp
 
 def camera_info(Igs, vp):
@@ -214,12 +213,12 @@ def camera_info(Igs, vp):
     
     camera_theta = np.arctan(np.sqrt(np.sum((vp_z - camera_direction)**2)) / focal_length)
     
-    return camera_theta, camera_direction, focal_length
+    return camera_direction, focal_length
 
 def main():
 
     # read images
-    for img_path in glob.glob(datadir+'/r*.*'):
+    for img_path in glob.glob(datadir+imagename):
         # load grayscale image
         img = Image.open(img_path).convert("L")
 
@@ -231,8 +230,13 @@ def main():
         H = HoughTransform(Im,threshold_hough, rhoRes, thetaRes)
         lRho, lTheta = HoughLines(H,rhoRes,thetaRes,nLines)
         vp = vp_detection(lRho, lTheta, threshold_vp_r_lo, threshold_vp_r_hi, threshold_vp_cnt)
-        camera_theta, camera_direction, focal_length = camera_info(Igs, vp)
-        print(camera_theta, camera_direction, focal_length)
+        camera_direction, focal_length = camera_info(Igs, vp)
+        print("Vanishing Points")
+        print(vp)
+        print()
+        print("Camera parameters")
+        print("Camera center: ", camera_direction)
+        print("Focal length: ", focal_length)
 
         image = np.array(Image.open(img_path).convert("RGB"))
         h, w, c = image.shape
@@ -259,6 +263,7 @@ def main():
                 draw.rectangle((vp[i][1]-y_min-2,vp[i][0]-x_min-2,vp[i][1]-y_min+2+1,vp[i][0]-x_min+2+1), fill=(255,0,0))
         result.save(resultdir+'/vanishing_point/'+img_path[len(datadir)+1:])
 
+        print()
         print(img_path,"DONE")
 
 if __name__ == '__main__':
