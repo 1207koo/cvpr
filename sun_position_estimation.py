@@ -6,6 +6,7 @@ from scipy import spatial
 import copy
 import time
 
+# use sky segmentation code from https://github.com/cnelson/skydetector
 # input : image, f (이미지 중심으로부터 45도가 몇 pixel인지), camera center
 # output : ~_sky.jpg (sky segmentation), ~_sun.jpg (sun position likelihood plot)
 
@@ -25,6 +26,7 @@ print("image size : {}".format(img.shape))
 
 # Sky Segmentation
 # **Implemented by cnelson**
+# https://github.com/cnelson/skydetector
 # A Python implementation of 
 # [Sky Region Detection in a Single Image for Autonomous Ground Robot Navigation (Shen and Wang, 2013)]
 
