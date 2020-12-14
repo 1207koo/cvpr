@@ -36,3 +36,8 @@ The result image will be saved in `resultdir+'/environment_map/'+imagename`
 ```
 python sun_position_estimation.py
 ```
+This will run sun position estimation. Output files are two images, which are sky segmentation result and sun position likelihood.
+
+Regarding the input file directory is same as above.
+
+The result images will be saved in `resultdir+'/sun_position/' directory, and file names are imagename+'_sky', imagename+'_sun', respectively.
