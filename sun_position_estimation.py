@@ -6,12 +6,11 @@ from scipy import spatial
 import copy
 import time
 
-# input : image, theta_c (카메라가 보는 방향의 고도), f (이미지 중심으로부터 45도가 몇 pixel인지), camera center
+# input : image, f (이미지 중심으로부터 45도가 몇 pixel인지), camera center
 # output : ~_sky.jpg (sky segmentation), ~_sun.jpg (sun position likelihood plot)
 
 center = [452.07,466.56]
 f = 561.15
-#theta_c = np.pi/2 - 1.073
 theta_c = 0
 phi_c = 0
 
