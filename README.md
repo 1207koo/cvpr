@@ -2,6 +2,7 @@
 
 ## data
 input images are in data/dataset.
+
 output images for each python file are in results/{vanishing_point, environment_map, sun_position}.
 
 ## run
