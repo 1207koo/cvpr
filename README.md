@@ -26,6 +26,11 @@ The result image will be saved in `resultdir+'/vanishing_point/'+imagename`
 ```
 python environment_mapping.py
 ```
+This will run enrionment mapping. Output file is a single image, which is an environment map of input image.
+
+Regarding the input file directory is same as above.
+
+The result image will be saved in `resultdir+'/environment_map/'+imagename`
 
 ### Running sun position estimation
 ```
