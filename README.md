@@ -3,6 +3,8 @@
 ## Data
 input images are in `data/dataset`.
 
+input images should be Manhattan world images with the sky contained.
+
 output images for each python file are in `results/{vanishing_point, environment_map, sun_position}`.
 
 ## Run
